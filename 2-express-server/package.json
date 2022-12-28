@@ -1,0 +1,33 @@
+{
+  "name": "sandbox-nodejs-course",
+  "version": "1.0.0",
+  "description": "Sandbox for nodejs courses.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Leonss23/sandbox-nodejs-course.git"
+  },
+  "keywords": [
+    "Sandbox",
+    "Nodejs",
+    "Learning",
+    "Examples"
+  ],
+  "author": "Leonardo Gatti <Leonss23Esp@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Leonss23/sandbox-nodejs-course/issues"
+  },
+  "homepage": "https://github.com/Leonss23/sandbox-nodejs-course#readme",
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  },
+  "dependencies": {
+    "date-fns": "^2.29.3",
+    "uuid": "^9.0.0"
+  }
+}
