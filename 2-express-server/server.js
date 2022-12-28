@@ -1,109 +1,57 @@
-const http = require("http");
+const express = require("express");
+const app = express();
 const path = require("path");
-const fs = require("fs");
-const fsPromises = fs.promises;
-
-const logEvents = require("./logEvents");
-const Events = require("events");
-
-class MyEvents extends Events {}
-
-const myEvents = new MyEvents();
-
-
-myEvents.on("log", (msg,fileName) => {logEvents(msg,fileName);});
+const { logger } = require("./middleware/logEvents");
+const errorHandler = require("./middleware/errorHandler");
+const cors = require("cors");
 
 const PORT = process.env.PORT ?? 5500;
 
-const server = http.createServer((request, response) => {
-  console.log(request.url, request.method);
-  myEvents.emit("log", `${request.url}\t${request.method}`, "reqLog.txt");
+app.use(logger);
 
-  const extension = path.extname(request.url);
-
-  const contentType = getContentType(extension);
-
-  // Suffixes .html if no extension is specified
-  const filePath =
-    !extension && request.url.slice(-1) !== "/"
-      ? getFilePath(contentType, request.url) + ".html"
-      : getFilePath(contentType, request.url);
-
-  const fileExists = fs.existsSync(filePath);
-
-  if (!fileExists) {
-    switch (path.parse(filePath).base) {
-      case "old-page.html":
-        response.writeHead(301, { Location: "/new-page.html" });
-        response.end();
-        break;
-      case "www-page.html":
-        response.writeHead(301, { Location: "/" });
-        response.end();
-        break;
-      default:
-        serveFile(
-          path.join(__dirname, "views", "404.html"),
-          "text/html",
-          response
-        );
+const corsWhitelist = ["http://localhost:5500"];
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (corsWhitelist.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
     }
+  },
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
+
+app.use(express.urlencoded({ extended: false }));
+
+app.use(express.json());
+
+app.use(express.static(path.join(__dirname, "/public")));
+
+app.get("^/$|index(.html)?", (request, response) => {
+  response.sendFile(path.join(__dirname, "views", "index.html"));
+});
+
+app.get("/new-page(.html)?", (request, response) => {
+  response.sendFile(path.join(__dirname, "views", "new-page.html"));
+});
+
+app.get("/old-page(.html)?", (request, response) => {
+  response.redirect(301, path.join(__dirname, "views", "new-page.html"));
+});
+
+app.all("*", (request, response) => {
+  response.status(404);
+  if (request.accepts("html")) {
+    response.sendFile(path.join(__dirname, "views", "404.html"));
+  } else if (request.accepts("json")) {
+    response.json({ error: "404 not found." });
   } else {
-    serveFile(filePath, contentType, response);
+    response.type('txt').send("404 not found.");
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Server listening on ${PORT}`);
-});
+app.use(errorHandler);
 
-async function serveFile(filePath, contentType, response) {
-  try {
-    const rawData = await fsPromises.readFile(
-      filePath,
-      !contentType.includes("image") ? "utf8" : ""
-    );
-    const data =
-      contentType === "application/json" ? JSON.parse(rawData) : rawData;
-    response.writeHead(filePath.includes("404.html") ? 404 : 200, {
-      "Content-Type": contentType,
-    });
-    response.end(
-      contentType === "application/json" ? JSON.stringify(data) : data
-    );
-  } catch (err) {
-    console.log(err);
-    myEvents.emit("log", `${err.name}\t${err.message}`, "errLog.txt");
-    response.statusCode = 500;
-    response.end();
-  }
-}
-
-function getFilePath(contentType, url) {
-  return contentType === "text/html" && url === "/"
-    ? path.join(__dirname, "views", "index.html")
-    : contentType === "text/html" && url.slice(-1) === "/"
-    ? path.join(__dirname, "views", url, "index.html")
-    : contentType === "text/html"
-    ? path.join(__dirname, "views", url)
-    : path.join(__dirname, url);
-}
-
-function getContentType(extension) {
-  switch (extension) {
-    case ".css":
-      return "text/css";
-    case ".js":
-      return "text/javascript";
-    case ".json":
-      return "application/json";
-    case ".jpg":
-      return "image/jpeg";
-    case ".png":
-      return "image/png";
-    case ".txt":
-      return "text/plain";
-    default:
-      return "text/html";
-  }
-}
+app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
