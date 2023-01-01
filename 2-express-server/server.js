@@ -4,22 +4,11 @@ const path = require("path");
 const { logger } = require("./middleware/logEvents");
 const errorHandler = require("./middleware/errorHandler");
 const cors = require("cors");
+const corsOptions = require("./config/corsOptions");
 
 const PORT = process.env.PORT ?? 5500;
 
 app.use(logger);
-
-const corsWhitelist = ["http://localhost:5500"];
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (corsWhitelist.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  optionsSuccessStatus: 200,
-};
 
 app.use(cors(corsOptions));
 
@@ -27,19 +16,13 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use(express.json());
 
+// serve static files
 app.use(express.static(path.join(__dirname, "/public")));
 
-app.get("^/$|index(.html)?", (request, response) => {
-  response.sendFile(path.join(__dirname, "views", "index.html"));
-});
-
-app.get("/new-page(.html)?", (request, response) => {
-  response.sendFile(path.join(__dirname, "views", "new-page.html"));
-});
-
-app.get("/old-page(.html)?", (request, response) => {
-  response.redirect(301, path.join(__dirname, "views", "new-page.html"));
-});
+// routes
+app.use("/", require("./routes/root"));
+app.use("/register", require("./routes/register"));
+app.use("/employees", require("./routes/api/employees"));
 
 app.all("*", (request, response) => {
   response.status(404);
@@ -48,7 +31,7 @@ app.all("*", (request, response) => {
   } else if (request.accepts("json")) {
     response.json({ error: "404 not found." });
   } else {
-    response.type('txt').send("404 not found.");
+    response.type("txt").send("404 not found.");
   }
 });
 
